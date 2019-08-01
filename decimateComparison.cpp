@@ -46,7 +46,6 @@ void FIR(float* data, float* output) {
             bank[i] += filter[j + 1] * data[idx];
             bank[i + 1] += filter[j + 1] * data[idx + 1];
         }
-        std::cout << std::endl;
     }
 }
 
@@ -90,7 +89,6 @@ void FIR_optim(float* data, float* output) {
             bank_for_optim[i] += filter_op[j] * data[idx];
             bank_for_optim[i + 1] += filter_op[j] * data[idx + 1];
         }
-        std::cout << std::endl;
     }
 }
 
