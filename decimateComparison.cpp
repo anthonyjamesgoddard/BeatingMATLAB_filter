@@ -1,16 +1,22 @@
+#include <immintrin.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <iostream>
 #include <vector>
 
-constexpr int SIZE = 80000;
-constexpr int FILTERSIZE = 5;
-const std::array<float, FILTERSIZE> filter{0.1, 1.1, 2.1, 3.1, 4.1};
+constexpr int SIZE = 2000000;
+constexpr int FILTERSIZE = 10;
+const std::array<float, FILTERSIZE> filter{0.1, 1.1, 2.1, 3.1, 4.1,
+                                           0.1, 1.1, 2.1, 3.1, 4.1};
 std::array<float, FILTERSIZE> filter_op = filter;
 std::array<float, 2 * (FILTERSIZE - 1)> bank = {};
 std::array<float, (FILTERSIZE - 1)> bankr = {};
 std::array<float, (FILTERSIZE - 1)> bankc = {};
+
+namespace {
+__m256 revKernel[FILTERSIZE];
+}
 
 void FIR(float* data, float* output) {
     int k;
@@ -43,15 +49,14 @@ void FIR(float* data, float* output) {
     for (int i = 0; i < 2 * (FILTERSIZE - 1); i += 2) {
         k = 0;
         for (int j = 0; j < FILTERSIZE - 1; j++, k += 2) {
-            if (SIZE - 2 + i - k > SIZE - 1) continue;
             idx = SIZE - 2 + i - k;
+            if (idx > SIZE - 1) continue;
             bank[i] += filter[j + 1] * data[idx];
             bank[i + 1] += filter[j + 1] * data[idx + 1];
         }
     }
 }
 
-#include <immintrin.h>
 /*
  * 1)  Convert the problem into a cross-correlation
  *     (basicallly dot products) vs a convolution
@@ -59,12 +64,6 @@ void FIR(float* data, float* output) {
  */
 
 void FIR_optim(float* datar, float* datac, float* outputr, float* outputc) {
-    // ----------------------------------------
-    __m256 revKernel[FILTERSIZE];
-    for (size_t i = 0; i < FILTERSIZE; i++)
-        revKernel[i] = _mm256_set1_ps(filter[FILTERSIZE - i - 1]);
-    // ----------------------------------------
-
     int b;
     for (int i = 0; i < FILTERSIZE; i++) {
         float temp1 = 0, temp2 = 0;
@@ -81,7 +80,8 @@ void FIR_optim(float* datar, float* datac, float* outputr, float* outputc) {
         outputr[i] += bankr[i];
         outputc[i] += bankc[i];
     }
-    for (int i = FILTERSIZE; i + 16 < SIZE / 2; i += 8) {
+    int i = FILTERSIZE;
+    for (; i + 16 < SIZE / 2; i += 8) {
         b = i - FILTERSIZE + 1;
         __m256 res1 = _mm256_setzero_ps();
         __m256 res2 = _mm256_setzero_ps();
@@ -94,12 +94,22 @@ void FIR_optim(float* datar, float* datac, float* outputr, float* outputc) {
         _mm256_storeu_ps(&outputr[i], res1);
         _mm256_storeu_ps(&outputc[i], res2);
     }
+    for (; i < SIZE / 2; i++) {
+        b = i - FILTERSIZE + 1;
+        float temp1 = 0, temp2 = 0;
+        for (int j = 0; j < FILTERSIZE; j++) {
+            temp1 += filter_op[j] * datar[b + j];
+            temp2 += filter_op[j] * datac[b + j];
+        }
+        outputr[i] = temp1;
+        outputc[i] = temp2;
+    }
     int idx;
     for (int i = 0; i < (FILTERSIZE - 1); i++) {
-        b = i - FILTERSIZE + 2;
+        b = i - FILTERSIZE + 1;
         for (int j = 0; j < FILTERSIZE - 1; j++) {
-            if (SIZE + b + j > SIZE - 1) break;
-            idx = SIZE + b + j;
+            idx = SIZE / 2 + b + j;
+            if (idx > SIZE / 2 - 1) break;
             bankr[i] += filter_op[j] * datar[idx];
             bankc[i] += filter_op[j] * datac[idx];
         }
@@ -127,26 +137,44 @@ int main() {
     // reverse filter first;
     std::cout << std::endl;
     std::reverse(filter_op.data(), filter_op.data() + FILTERSIZE);
+    for (size_t i = 0; i < FILTERSIZE; i++)
+        revKernel[i] = _mm256_set1_ps(filter[FILTERSIZE - i - 1]);
     FIR_optim(datar, datac, outOptimisedr, outOptimisedc);
 
     std::cout << "output" << std::endl;
-    /*
+
     j = 0;
-    for (int i = 0; i < SIZE/2; i++) {
+    for (int i = 0; i < SIZE / 2; i++) {
+        /*
         std::cout << i << std::endl;
         std::cout << "normal: " << out[j] << " " << out[j + 1] << std::endl;
-        std::cout << "optmised: " << outOptimisedr[i] << " "
-                  << outOptimisedc[i] << std::endl;
+        std::cout << "optmised: " << outOptimisedr[i] << " " << outOptimisedc[i]
+                  << std::endl;
         std::cout << std::endl;
+
+        if (out[j] != outOptimisedr[i]) {
+            std::cout << i << std::endl;
+            std::cout << "difference " << out[j] - outOptimisedr[i]
+                      << std::endl;
+        }
+        if (out[j + 1] != outOptimisedc[i]) {
+            std::cout << i << std::endl;
+            std::cout << "difference " << out[j] - outOptimisedr[i]
+                      << std::endl;
+        }
         j += 2;
+        */
     }
     std::cout << std::endl;
-    */
-    /*
-    for (int i = 0; i < 2 * (FILTERSIZE - 1); i++) {
-        std::cout << bank[i] << " " << bank_for_optim[i] << std::endl;
+
+    std::cout << " bank for normal " << std::endl;
+    for (int i = 0; i < 2 * (FILTERSIZE - 1); i += 2) {
+        // std::cout << bank[i] << " " << bank[i + 1] << std::endl;
     }
-    */
+    std::cout << " bank for optmised " << std::endl;
+    for (int i = 0; i < (FILTERSIZE - 1); i++) {
+        // std::cout << bankr[i] << " " << bankc[i] << std::endl;
+    }
 
     std::cout << "now we need to rerun the decimation" << std::endl;
 
@@ -181,14 +209,27 @@ int main() {
                                                                        begin)
                      .count()
               << "[ms]" << std::endl;
+    j = 0;
+    for (int i = 0; i < SIZE / 2; i++) {
+        /*
+        std::cout << i << std::endl;
+        std::cout << "normal: " << out[j] << " " << out[j + 1] << std::endl;
+        std::cout << "optmised: " << outOptimisedr[i] << " " << outOptimisedc[i]
+                  << std::endl;
+        std::cout << std::endl;
 
-    /*
-        for (int i = 0; i < SIZE; i += 2) {
-            std::cout << "normal: " << out[i] << " " << out[i + 1] << std::endl;
-            std::cout << "optmised: " << outOptimised[i] << " "
-                      << outOptimised[i + 1] << std::endl;
-            std::cout << std::endl;
+        if (out[j] != outOptimisedr[i]) {
+            std::cout << i << std::endl;
+            std::cout << "difference " << out[j] - outOptimisedr[i]
+                      << std::endl;
         }
+        if (out[j + 1] != outOptimisedc[i]) {
+            std::cout << i << std::endl;
+            std::cout << "difference " << out[j] - outOptimisedr[i]
+                      << std::endl;
+        }
+        j += 2;
         */
+    }
 }
 
