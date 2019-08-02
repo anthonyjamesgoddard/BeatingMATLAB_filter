@@ -3,3 +3,5 @@ This is a work-related project that attempts to beat MATLAB's filter command whe
 ![Screenshot](/test.png)
 
 As we can see we have a ~6.5 times speedup (02-Aug-2019). There is some room for improvement still (manual loop unrolling maybe). 
+
+How does this compare to MATLAB's filter? both versions significantly beat it.
