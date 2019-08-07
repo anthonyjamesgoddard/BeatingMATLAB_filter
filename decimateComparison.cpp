@@ -15,12 +15,16 @@ std::array<float, 2 * (FILTERSIZE - 1)> bank_r = {};
 std::array<float, (FILTERSIZE - 1)> bankr = {};
 std::array<float, (FILTERSIZE - 1)> bankc = {};
 
-#define EXECUTE(j)                                           \
-    {                                                        \
-        __m256 floats1 = _mm256_load_ps(&datar[b + j]);      \
-        __m256 floats2 = _mm256_load_ps(&datac[b + j]);      \
-        res1 = _mm256_fmadd_ps(revKernel[j], floats1, res1); \
-        res2 = _mm256_fmadd_ps(revKernel[j], floats2, res2); \
+// removed the dependancy on fused multiply add.
+// literally has no effect on the time it takes. see
+// older commit or blog to "regress"
+
+#define EXECUTE(j)                                                        \
+    {                                                                     \
+        __m256 floats1 = _mm256_load_ps(&datar[b + j]);                   \
+        __m256 floats2 = _mm256_load_ps(&datac[b + j]);                   \
+        res1 = _mm256_add_ps(res1, _mm256_mul_ps(revKernel[j], floats1)); \
+        res2 = _mm256_add_ps(res2, _mm256_mul_ps(revKernel[j], floats2)); \
     }
 
 namespace {
@@ -280,7 +284,7 @@ int main() {
     // TIMING ---------------
     std::chrono::steady_clock::time_point begin =
         std::chrono::steady_clock::now();
-    std::cout << "optimised version" << std::endl;
+    std::cout << "avx version" << std::endl;
 
     for (int i = 0; i < 1000; i++) {
         FIR_optim_avx(datasplitr, datasplitc, outSplitr, outSplitc);
@@ -296,7 +300,7 @@ int main() {
               << "[ms]" << std::endl;
     // -----------------------
     begin = std::chrono::steady_clock::now();
-    std::cout << "vanilla-reverse version" << std::endl;
+    std::cout << "vanilla-reverse real and imaginary version" << std::endl;
 
     for (int i = 0; i < 1000; i++) {
         FIR_optim(datar, datac, outOptimisedr, outOptimisedc);
