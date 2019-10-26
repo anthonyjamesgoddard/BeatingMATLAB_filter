@@ -4,5 +4,3 @@ This is a work-related project that attempts to beat MATLAB's filter command whe
 
 As we can see we have a ~6.5 times speedup (02-Aug-2019). There is some room for improvement still (manual loop unrolling maybe). 
 
-I have written a blog post on this work 
-https://grainofsandonanendlessbeach.blogspot.com/2019/08/using-avx-instruction-set-to-boost.html
