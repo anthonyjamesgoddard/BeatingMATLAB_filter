@@ -15,10 +15,6 @@ std::array<float, 2 * (FILTERSIZE - 1)> bank_r = {};
 std::array<float, (FILTERSIZE - 1)> bankr = {};
 std::array<float, (FILTERSIZE - 1)> bankc = {};
 
-// removed the dependancy on fused multiply add.
-// literally has no effect on the time it takes. see
-// older commit or blog to "regress"
-
 #define EXECUTE(j)                                                        \
     {                                                                     \
         __m256 floats1 = _mm256_load_ps(&datar[b + j]);                   \
@@ -229,7 +225,7 @@ int main() {
 
     for (int i = 0; i < SIZE; i++) {
         data[i] = i + 1;
-        data_r[i] = i + 1;
+        data_r[i] = SIZE - i;
     }
 
     int j = 0;
