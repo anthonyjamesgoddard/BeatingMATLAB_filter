@@ -7,8 +7,8 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
 endif (MSVC)
 
+set(CMAKE_CXX_FLAGS "-Ofast -mavx")
 add_executable(benchmark benchmark.cpp)
-target_compile_options(benchmark PRIVATE -mavx2)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     message(STATUS "GCC detected, adding compile flags")
