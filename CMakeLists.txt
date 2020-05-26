@@ -8,4 +8,9 @@ if (MSVC)
 endif (MSVC)
 
 add_executable(benchmark benchmark.cpp)
-target_compile_options(benchmark PRIVATE -Wall -Wextra -mavx2)
+target_compile_options(benchmark PRIVATE -mavx2)
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+    message(STATUS "GCC detected, adding compile flags")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pedantic -Wall -Wextra")
+endif(CMAKE_COMPILER_IS_GNUCXX)

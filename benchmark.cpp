@@ -361,5 +361,6 @@ int main() {
         j += 2;
         */
     }
+	return 0;
 }
 
