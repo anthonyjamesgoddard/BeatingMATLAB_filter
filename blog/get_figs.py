@@ -23,8 +23,13 @@ def plot_chunk_data(chunk_size, lines):
     plt.loglog(x,y2, label='real-imag')
     plt.loglog(x,y3, label='rev-filter')
     plt.loglog(x,y4, label='vanilla')
-    plt.legend()
-    plt.savefig("plots/" + str(chunk_size) + ".eps")
+    ax = plt.gca()
+    ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
+    ax.get_xaxis().set_minor_formatter(mticker.NullFormatter())
+    plt.xticks([8,16,32,64,128,256, 512,1024])
+    plt.xlim(7,1025)
+    plt.legend(loc=2)
+    plt.savefig("plots/" + str(chunk_size) + ".png", dpi=300)
 
 def plot_col(col, lines):
     plt.figure()
@@ -45,8 +50,13 @@ def plot_col(col, lines):
     plt.loglog(x2,y2, label='SIZE = 8000')
     plt.loglog(x3,y3, label='SIZE = 80000')
     plt.loglog(x4,y4, label='SIZE = 800000')
-    plt.legend()
-    plt.savefig("plots/" + d[col] + ".eps")
+    ax = plt.gca()
+    ax.get_xaxis().set_major_formatter(mticker.ScalarFormatter())
+    ax.get_xaxis().set_minor_formatter(mticker.NullFormatter())
+    plt.xticks([8,16,32,64,128,256, 512,1024])
+    plt.xlim(7,1025)
+    plt.legend(loc=2)
+    plt.savefig("plots/" + d[col] + ".png", dpi=300)
     
 
 with open("linux_benchmarks.txt") as f:
