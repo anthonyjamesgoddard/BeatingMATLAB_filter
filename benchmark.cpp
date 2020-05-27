@@ -11,7 +11,7 @@ void FIR_optim(float* datar, float* datac, float* outputr, float* outputc);
 void FIR_optim_avx(float* datar, float* datac, float* outputr, float* outputc);
 
 constexpr int SIZE = 800000;
-constexpr int FILTERSIZE = 8;
+constexpr int FILTERSIZE = 1024;
 
 template <std::size_t... I>
 constexpr std::array<float, sizeof...(I)> fillArray(std::index_sequence<I...>) {
