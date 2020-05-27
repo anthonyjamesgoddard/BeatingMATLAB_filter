@@ -29,7 +29,7 @@ def plot_chunk_data(chunk_size, lines):
     plt.xticks([8,16,32,64,128,256, 512,1024])
     plt.xlim(7,1025)
     plt.legend(loc=2)
-    plt.savefig("plots/" + str(chunk_size) + ".pdf", dpi=100)
+    plt.savefig("plots/" + str(chunk_size) + ".png", dpi=100)
 
 def plot_col(col, lines):
     plt.figure()
