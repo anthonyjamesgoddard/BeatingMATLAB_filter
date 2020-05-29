@@ -9,6 +9,21 @@ chunk_sizes = [800,8000,80000,800000]
 
 d = {2:'avx', 3:'real_imag', 4:'rev_filter', 5:'vanilla'}
 
+def plot_fmadd(chunk_size, lines):
+    plt.figure()
+    plt.title("SIZE :" + str(chunk_size))
+    x = [line.split()[0] for line in lines if int(line.split()[1]) == chunk_size]
+    y1 = [int(line.split()[2]) for line in lines if int(line.split()[1]) == chunk_size]
+    y2 = [int(line.split()[3]) for line in lines if int(line.split()[1]) == chunk_size]
+    y3 = [int(line.split()[4]) for line in lines if int(line.split()[1]) == chunk_size]
+    plt.xlabel("FILTER_SIZE")
+    plt.ylabel("ms")
+    plt.plot(x,y1, label='avx_fma_hc')
+    plt.plot(x,y2, label='avx_fma')
+    plt.plot(x,y3, label='rev-filter_fma')
+    plt.legend(loc=2)
+    plt.savefig("plots/" + str(chunk_size) + "_fmadd.png", dpi=100)
+
 def plot_chunk_data(chunk_size, lines):
     plt.figure()
     plt.title("SIZE :" + str(chunk_size))
@@ -65,4 +80,11 @@ with open("linux_benchmarks.txt") as f:
         plot_chunk_data(c, lines)
     for i in range(2,6):
         plot_col(i, lines)
+f.close()
+
+
+with open("fma_linux_benchmarks.txt") as f:
+    plot_fmadd(80000, lines)
+    plot_fmadd(800000, lines)
+f.close()
 

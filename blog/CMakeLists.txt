@@ -7,7 +7,7 @@ if (MSVC)
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
 endif (MSVC)
 
-set(CMAKE_CXX_FLAGS "-Ofast -mavx")
+set(CMAKE_CXX_FLAGS "-Ofast -mavx -mfma")
 add_executable(benchmark benchmark.cpp)
 
 if(CMAKE_COMPILER_IS_GNUCXX)

@@ -9,9 +9,10 @@ void FIR(float* data, float* output);
 void FIR_rev(float* data, float* output);
 void FIR_optim(float* datar, float* datac, float* outputr, float* outputc);
 void FIR_optim_avx(float* datar, float* datac, float* outputr, float* outputc);
+void FIR_optim_avx2(float* datar, float* datac, float* outputr, float* outputc);
 
-constexpr int SIZE = 800000;
-constexpr int FILTERSIZE = 1024;
+constexpr int SIZE = 80000;
+constexpr int FILTERSIZE = 8;
 
 template <std::size_t... I>
 constexpr std::array<float, sizeof...(I)> fillArray(std::index_sequence<I...>) {
@@ -38,6 +39,14 @@ std::array<float, (FILTERSIZE - 1)> bankc = {};
         __m256 floats2 = _mm256_load_ps(&datac[b + j]);                   \
         res1 = _mm256_add_ps(res1, _mm256_mul_ps(revKernel[j], floats1)); \
         res2 = _mm256_add_ps(res2, _mm256_mul_ps(revKernel[j], floats2)); \
+    }
+
+#define EXECUTE2(j)                                          \
+    {                                                        \
+        __m256 floats1 = _mm256_load_ps(&datar[b + j]);      \
+        __m256 floats2 = _mm256_load_ps(&datac[b + j]);      \
+        res1 = _mm256_fmadd_ps(revKernel[j], floats1, res1); \
+        res2 = _mm256_fmadd_ps(revKernel[j], floats2, res2); \
     }
 
 namespace {
@@ -82,55 +91,39 @@ int main() {
         FIR_optim_avx(datasplitr, datasplitc, outSplitr, outSplitc);
     }
 
-    std::cout << FILTERSIZE << " " << SIZE << " ";
-
     std::chrono::steady_clock::time_point end =
         std::chrono::steady_clock::now();
 
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
-              << " ";
-    // -----------------------
-    begin = std::chrono::steady_clock::now();
-
-    for (int i = 0; i < 1000; i++) {
-        FIR_optim(datar, datac, outOptimisedr, outOptimisedc);
-    }
-
-    end = std::chrono::steady_clock::now();
-
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
-              << " ";
-    // -----------------------
-    begin = std::chrono::steady_clock::now();
-
-    for (int i = 0; i < 1000; i++) {
-        FIR_rev(data_r, out_r);
-    }
-
-    end = std::chrono::steady_clock::now();
-
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
-              << " ";
+    auto timeavx =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
 
     begin = std::chrono::steady_clock::now();
 
     for (int i = 0; i < 1000; i++) {
-        FIR(data, out);
+        FIR_optim_avx2(datasplitr, datasplitc, outSplitr, outSplitc);
     }
 
     end = std::chrono::steady_clock::now();
 
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end -
-                                                                       begin)
-                     .count()
-              << std::endl;
-    return 0;
+    auto timeavx2 =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
+
+    begin = std::chrono::steady_clock::now();
+
+    for (int i = 0; i < 1000; i++) {
+        FIR_optim(datasplitr, datasplitc, outSplitr, outSplitc);
+    }
+
+    end = std::chrono::steady_clock::now();
+
+    auto timeoptim =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - begin)
+            .count();
+
+    std::cout << FILTERSIZE << " " << SIZE << " " << timeavx2 << " " << timeavx
+              << " " << timeoptim << std::endl;
 }
 
 void FIR(float* data, float* output) {
@@ -280,6 +273,57 @@ void FIR_optim_avx(float* datar, float* datac, float* outputr, float* outputc) {
         __m256 res2 = _mm256_setzero_ps();
         for (int k = 0; k < FILTERSIZE; ++k) {
             EXECUTE(k);
+        }
+        _mm256_storeu_ps(&outputr[i], res1);
+        _mm256_storeu_ps(&outputc[i], res2);
+    }
+    for (; i < SIZE / 2; ++i) {
+        b = i - FILTERSIZE + 1;
+        float temp1 = 0, temp2 = 0;
+        for (int j = 0; j < FILTERSIZE; j++) {
+            temp1 += filter_op[j] * datar[b + j];
+            temp2 += filter_op[j] * datac[b + j];
+        }
+        outputr[i] = temp1;
+        outputc[i] = temp2;
+    }
+    int idx;
+    for (int i = 0; i < (FILTERSIZE - 1); i++) {
+        b = i - FILTERSIZE + 1;
+        for (int j = 0; j < FILTERSIZE - 1; j++) {
+            idx = SIZE / 2 + b + j;
+            if (idx > SIZE / 2 - 1) break;
+            bankr[i] += filter_op[j] * datar[idx];
+            bankc[i] += filter_op[j] * datac[idx];
+        }
+    }
+}
+
+void FIR_optim_avx2(float* datar, float* datac, float* outputr,
+                    float* outputc) {
+    int b;
+    for (int i = 0; i < FILTERSIZE; i++) {
+        float temp1 = 0, temp2 = 0;
+        b = i - FILTERSIZE + 1;
+        for (int j = 0; j < FILTERSIZE; j++) {
+            if (b + j < 0) continue;
+            temp1 += filter_op[j] * datar[b + j];
+            temp2 += filter_op[j] * datac[b + j];
+        }
+        outputr[i] = temp1;
+        outputc[i] = temp2;
+    }
+    for (int i = 0; i < (FILTERSIZE - 1); i++) {
+        outputr[i] += bankr[i];
+        outputc[i] += bankc[i];
+    }
+    int i = FILTERSIZE;
+    for (; i + 16 < SIZE / 2; i += 8) {
+        b = i - FILTERSIZE + 1;
+        __m256 res1 = _mm256_setzero_ps();
+        __m256 res2 = _mm256_setzero_ps();
+        for (int k = 0; k < FILTERSIZE; ++k) {
+            EXECUTE2(k);
         }
         _mm256_storeu_ps(&outputr[i], res1);
         _mm256_storeu_ps(&outputc[i], res2);
